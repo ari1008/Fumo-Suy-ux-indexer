@@ -7,17 +7,22 @@ import {
     useBlockNumber,
     useConnect,
     useDisconnect,
-    useSwitchChain
+    useSwitchChain,
+    useBlock,
+    useGasPrice
 } from 'wagmi';
 import { Info, Network, Wallet, AlertTriangle, LogOut } from 'lucide-react';
+import { formatEther, formatUnits } from 'viem';
 
-export default function Page() {
+function Page() {
     const { isConnected, address } = useAccount();
     const { connect, connectors } = useConnect();
     const { disconnect } = useDisconnect();
     const { switchChain } = useSwitchChain();
     const chainId = useChainId();
     const { data: blockNumber } = useBlockNumber();
+    const { data: blockData } = useBlock({ blockNumber });
+    const { data: gasPrice } = useGasPrice();
 
     const ALLOWED_CHAINS = {
         MAINNET: 1,
@@ -112,6 +117,33 @@ export default function Page() {
     const chainErrorComponent = handleChainError();
     if (chainErrorComponent) return chainErrorComponent;
 
+    // Fonctions utilitaires de conversion sécurisées
+    const safeFormatEther = (value: bigint | undefined) => {
+        try {
+            return value ? formatEther(value) : 'Chargement...';
+        } catch {
+            return 'Erreur';
+        }
+    };
+
+    const safeFormatGwei = (value: bigint | undefined) => {
+        try {
+            return value ? formatUnits(value, 9) : 'Chargement...';
+        } catch {
+            return 'Erreur';
+        }
+    };
+
+    const calculateBurntFees = () => {
+        try {
+            if (!blockData?.baseFeePerGas || !blockData?.gasUsed) return 'Chargement...';
+            const burntFees = blockData.baseFeePerGas * blockData.gasUsed;
+            return safeFormatEther(burntFees);
+        } catch {
+            return 'Erreur';
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-100 p-6">
             <div className="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-6">
@@ -137,7 +169,7 @@ export default function Page() {
                     </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
                     <InfoCard
                         label="Chain ID"
                         value={chainId.toString()}
@@ -152,6 +184,29 @@ export default function Page() {
                         label="Numéro de Bloc"
                         value={blockNumber ? blockNumber.toString() : 'Chargement...'}
                         icon={<Info className="text-purple-500" />}
+                    />
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <InfoCard
+                        label="Dernier Hash de Bloc"
+                        value={blockData?.hash ? `${blockData.hash.slice(0, 10)}...` : 'Chargement...'}
+                        icon={<Info className="text-orange-500" />}
+                    />
+                    <InfoCard
+                        label="Gaz Utilisé"
+                        value={blockData?.gasUsed ? blockData.gasUsed.toString() : 'Chargement...'}
+                        icon={<Info className="text-red-500" />}
+                    />
+                    <InfoCard
+                        label="Prix du Gaz"
+                        value={safeFormatGwei(gasPrice) + ' Gwei'}
+                        icon={<Info className="text-yellow-500" />}
+                    />
+                    <InfoCard
+                        label="Frais Brûlés"
+                        value={calculateBurntFees() + ' ETH'}
+                        icon={<Info className="text-pink-500" />}
                     />
                 </div>
             </div>
@@ -176,3 +231,5 @@ function InfoCard({ label, value, icon }: InfoCardProps) {
         </div>
     );
 }
+
+export default Page;
