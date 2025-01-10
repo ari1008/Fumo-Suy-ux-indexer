@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import {ChevronRight} from 'lucide-react';
 
-const ChainInfoPage: React.FC = () => {
+const Start: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 space-y-6">
@@ -28,4 +28,4 @@ const ChainInfoPage: React.FC = () => {
     );
 };
 
-export default ChainInfoPage;
+export default Start;

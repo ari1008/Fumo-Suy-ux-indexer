@@ -1,28 +1,91 @@
 'use client';
 
 import React from 'react';
-import { useAccount, useChainId, useBlockNumber, useConnect } from 'wagmi';
-import { Info, Network, Wallet } from 'lucide-react';
+import {
+    useAccount,
+    useChainId,
+    useBlockNumber,
+    useConnect,
+    useDisconnect,
+    useSwitchChain
+} from 'wagmi';
+import { Info, Network, Wallet, AlertTriangle, LogOut } from 'lucide-react';
 
 export default function Page() {
-    const { isConnected } = useAccount();
+    const { isConnected, address } = useAccount();
     const { connect, connectors } = useConnect();
+    const { disconnect } = useDisconnect();
+    const { switchChain } = useSwitchChain();
     const chainId = useChainId();
     const { data: blockNumber } = useBlockNumber();
 
+    const ALLOWED_CHAINS = {
+        MAINNET: 1,
+        SEPOLIA: 11155111
+    };
+
     const getChainName = (id: number) => {
         const chainNames: { [key: number]: string } = {
-            1: 'Ethereum Mainnet',
-            11155111: 'Sepolia Testnet',
+            [ALLOWED_CHAINS.MAINNET]: 'Ethereum Mainnet',
+            [ALLOWED_CHAINS.SEPOLIA]: 'Sepolia Testnet',
         };
         return chainNames[id] || `Unknown Chain (ID: ${id})`;
     };
 
-    // Si non connecté, afficher un bouton de connexion
+    const isValidChain = () => Object.values(ALLOWED_CHAINS).includes(chainId);
+
+    const handleChainError = () => {
+        if (isConnected && !isValidChain()) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
+                    <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md space-y-4">
+                        <AlertTriangle className="mx-auto text-6xl text-red-600" />
+
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-2 text-red-800">
+                                Mauvaise Chaîne Réseau
+                            </h2>
+                            <p className="mb-4 text-gray-600">
+                                Vous êtes actuellement connecté à {getChainName(chainId)}.
+                                Veuillez vous connecter à l'une des chaînes suivantes :
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            {Object.entries(ALLOWED_CHAINS).map(([name, id]) => (
+                                <button
+                                    key={id}
+                                    onClick={() => switchChain({ chainId: id })}
+                                    className={`w-full py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center 
+                                    ${id === ALLOWED_CHAINS.MAINNET
+                                        ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                                        : 'bg-green-500 hover:bg-green-600 text-white'}`}
+                                >
+                                    <Network className="mr-2" />
+                                    Passer à {name}
+                                </button>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => disconnect()}
+                            className="w-full bg-red-500 text-white py-3 px-4 rounded-lg
+                            hover:bg-red-600 transition duration-300 flex items-center justify-center"
+                        >
+                            <LogOut className="mr-2" />
+                            Se déconnecter
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     if (!isConnected) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-                <div className="text-center bg-white p-8 rounded-xl shadow-lg">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+                <div className="text-center bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
                     <Network className="mx-auto mb-4 text-6xl text-blue-600" />
                     <h2 className="text-2xl font-semibold mb-4">
                         Connectez votre portefeuille
@@ -33,8 +96,8 @@ export default function Page() {
                                 key={connector.id}
                                 onClick={() => connect({ connector })}
                                 className="w-full flex items-center justify-center
-                  bg-blue-500 text-white py-3 px-4 rounded-lg
-                  hover:bg-blue-600 transition duration-300"
+                                bg-blue-500 text-white py-3 px-4 rounded-lg
+                                hover:bg-blue-600 transition duration-300"
                             >
                                 <Wallet className="mr-2" />
                                 Connecter avec {connector.name}
@@ -46,18 +109,35 @@ export default function Page() {
         );
     }
 
-    // Si connecté, afficher les informations
+    const chainErrorComponent = handleChainError();
+    if (chainErrorComponent) return chainErrorComponent;
+
     return (
         <div className="min-h-screen bg-gray-100 p-6">
             <div className="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-6">
-                <div className="flex items-center mb-6">
-                    <Network className="mr-2 text-blue-600" />
-                    <h1 className="text-2xl font-bold text-gray-800">
-                        Informations Blockchain
-                    </h1>
+                <div className="flex items-center mb-6 justify-between">
+                    <div className="flex items-center">
+                        <Network className="mr-2 text-blue-600" />
+                        <h1 className="text-2xl font-bold text-gray-800">
+                            Informations Blockchain
+                        </h1>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                        <div className="text-sm text-gray-600">
+                            {address && `Connecté: ${address.slice(0, 6)}...${address.slice(-4)}`}
+                        </div>
+                        <button
+                            onClick={() => disconnect()}
+                            className="bg-red-500 text-white px-3 py-1 rounded-md
+                            hover:bg-red-600 transition duration-300 flex items-center"
+                        >
+                            <LogOut className="mr-1 w-4 h-4" />
+                            Déconnexion
+                        </button>
+                    </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-3 gap-4">
                     <InfoCard
                         label="Chain ID"
                         value={chainId.toString()}
@@ -79,7 +159,6 @@ export default function Page() {
     );
 }
 
-// Composant de carte d'information
 interface InfoCardProps {
     label: string;
     value: string;
